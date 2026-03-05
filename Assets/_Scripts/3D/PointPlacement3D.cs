@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Jobs;
 
 public class PointPlacement3D : MonoBehaviour
 {
@@ -10,7 +11,7 @@ public class PointPlacement3D : MonoBehaviour
     [SerializeField] GameObject[,] GridPoints;
     [SerializeField] GameObject GridPointPrefab, PointPrefab;
     [SerializeField] Transform PointParent;
-    [SerializeField] float PointSpacing = 5f, Amplitude = 2f, GridPointY = -10f;
+    [SerializeField] float PointSpacing = 5f, Amplitude = 2f, Frequency = 1f, GridPointY = -10f;
     [SerializeField] int PointDensity = 2;
     [SerializeField] bool DiscreteValues = false, GenerationDelay = false;
 
@@ -87,7 +88,7 @@ public class PointPlacement3D : MonoBehaviour
                         for (int xProgress = 0; xProgress < PointDensity; xProgress++)
                         {
                             Vector2 scaledPosition = new Vector2(GridPoints[x, z].transform.position.x + xFraction * xProgress, GridPoints[x, z].transform.position.z + zFraction * zProgress);
-                            float rawNoise = PerlinNoise(new Vector2(scaledPosition.x, scaledPosition.y)) * Amplitude;
+                            float rawNoise = PerlinNoise(scaledPosition * Frequency) * Amplitude;
                             float yNoise = DiscreteValues ? Mathf.Round(rawNoise) : rawNoise;
 
                             Vector3 position = new Vector3(GridPoints[x, z].transform.position.x + xFraction * xProgress, yNoise, GridPoints[x, z].transform.position.z + zFraction * zProgress);
@@ -107,29 +108,46 @@ public class PointPlacement3D : MonoBehaviour
     float PerlinNoise(Vector2 flatPos)
     {
         //starting indicies
-        int maxIndexX = PX, maxIndexZ = PZ;
-        Vector2Int blCorner = new Vector2Int(
-        Mathf.Clamp((int)(flatPos.x / PointSpacing), 0, maxIndexX), 
-        Mathf.Clamp((int)(flatPos.y / PointSpacing), 0, maxIndexZ)
+        int maxIndexX = PX - 2, maxIndexZ = PZ - 2;
+        //Vector2 scaledPos = Frequency * flatPos;
+        //Calculate first corner
+        Vector2Int firstCornIndex = new Vector2Int(
+        (int)(flatPos.x / PointSpacing), 
+        (int)(flatPos.y / PointSpacing)
         );
-       
+
+        //wrapped indicies used for the rest of the corners
+        int[] indicies = {
+        firstCornIndex.x % PX,
+        (firstCornIndex.x + 1) % PX,
+        firstCornIndex.y % PZ,
+        (firstCornIndex.y + 1) % PZ
+        };
+
         GameObject[] corners = {
-        GridPoints[blCorner.x, blCorner.y],
-        GridPoints[blCorner.x + 1, blCorner.y],
-        GridPoints[blCorner.x, blCorner.y + 1],
-        GridPoints[blCorner.x + 1, blCorner.y + 1]};
+        GridPoints[indicies[0],indicies[2]],
+        GridPoints[indicies[1],indicies[2]],
+        GridPoints[indicies[0],indicies[3]],
+        GridPoints[indicies[1], indicies[3]]};
+
+        float tx = TSmooth((flatPos.x % PointSpacing) / PointSpacing);
+        float ty = TSmooth((flatPos.y % PointSpacing) / PointSpacing);
+
+        Vector2[] offsets =
+        {
+            new Vector2(tx, ty),
+            new Vector2(tx - 1, ty),
+            new Vector2(tx, ty - 1),
+            new Vector2(tx - 1, ty - 1)
+        };
 
         float[] influences = new float[corners.Length];
+
         for(int i = 0; i < corners.Length; i++)
         {
-            Vector2 flatCornPos = new Vector2(corners[i].transform.position.x, corners[i].transform.position.z);
-            Vector2 offset = (flatPos - flatCornPos) / PointSpacing;
-            float influence = Vector2.Dot(corners[i].GetComponent<GridPointInfo>().Gradient, offset);
+            float influence = Vector2.Dot(corners[i].GetComponent<GridPointInfo>().Gradient, offsets[i]);
             influences[i] = influence;
         }
-
-        float tx = TSmooth((flatPos.x - GridPoints[blCorner.x, blCorner.y].transform.position.x) / PointSpacing);
-        float ty = TSmooth((flatPos.y - GridPoints[blCorner.x, blCorner.y].transform.position.z) / PointSpacing);
 
         float bottom = Mathf.Lerp(influences[0], influences[1], tx);
         float top = Mathf.Lerp(influences[2], influences[3], tx);

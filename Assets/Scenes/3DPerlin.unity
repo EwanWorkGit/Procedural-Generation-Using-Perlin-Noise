@@ -153,14 +153,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   CenterPos: {x: 0, y: 0, z: 0}
   PX: 5
-  PZ: 10
+  PZ: 5
   GridPointPrefab: {fileID: 8096286367886233396, guid: c5c7e02ff9a9cfb4db42088b9543f671, type: 3}
   PointPrefab: {fileID: 4797485037035512271, guid: 88a522750754ae1478d0a36643dbdd52, type: 3}
   PointParent: {fileID: 1452390472}
-  PointSpacing: 20
+  PointSpacing: 16
   Amplitude: 12
+  Frequency: 1.5
   GridPointY: -10
-  PointDensity: 20
+  PointDensity: 16
   DiscreteValues: 0
   GenerationDelay: 0
 --- !u!4 &513662959
