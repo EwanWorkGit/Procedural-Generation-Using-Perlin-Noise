@@ -1,16 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class PointPlacement3D : MonoBehaviour
 {
+    public Vector3 CenterPos; //for camera
+    public int PX = 10, PZ; //Points per axis, for camera
+
     [SerializeField] GameObject[,] GridPoints;
     [SerializeField] GameObject GridPointPrefab, PointPrefab;
     [SerializeField] Transform PointParent;
     [SerializeField] float PointSpacing = 5f, Amplitude = 2f, GridPointY = -10f;
     [SerializeField] int PointDensity = 2;
-    [SerializeField] int PX = 10, PZ; //Points per axis
     [SerializeField] bool DiscreteValues = false, GenerationDelay = false;
 
     Coroutine Generation;
@@ -19,7 +20,7 @@ public class PointPlacement3D : MonoBehaviour
 
     private void Start()
     {
-        GridPoints = new GameObject[PX + 2, PZ + 2];
+        GridPoints = new GameObject[PX, PZ];
     }
 
     //define x and z directions, place grid points along them at axisinterval
@@ -34,6 +35,9 @@ public class PointPlacement3D : MonoBehaviour
             {
                 Destroy(p);
             }
+            
+            GridPoints = new GameObject[PX, PZ];
+
             Updated = false;
         }
 
@@ -41,9 +45,9 @@ public class PointPlacement3D : MonoBehaviour
         {
             Vector3 right = Vector3.right, up = Vector3.up;
 
-            for(int z = 0; z < PZ; z++)
+            for(int z = 0; z < GridPoints.GetLength(1); z++)
             {
-                for(int x = 0; x < PX ; x++)
+                for(int x = 0; x < GridPoints.GetLength(0); x++)
                 {
                     Vector3 position = new Vector3(x * PointSpacing, GridPointY, z * PointSpacing);
                     GameObject gridPoint = Instantiate(GridPointPrefab, position, Quaternion.identity);
@@ -57,15 +61,19 @@ public class PointPlacement3D : MonoBehaviour
 
             Updated = true;
         }
+
+        
     }
 
     IEnumerator VisibleGeneration()
     {
-        for (int z = 0; z < PZ; z++)
+        List<Vector3> positions = new List<Vector3>();
+
+        for (int z = 0; z < GridPoints.GetLength(1); z++)
         {
-            for (int x = 0; x < PX; x++)
+            for (int x = 0; x < GridPoints.GetLength(0); x++)
             {
-                if (z + 1 < PZ && x + 1 < PX)
+                if (z + 1 < GridPoints.GetLength(1) && x + 1 < GridPoints.GetLength(0))
                 {
                     float xDist = GridPoints[x + 1, z].transform.position.x - GridPoints[x, z].transform.position.x;
                     float zDist = GridPoints[x, z + 1].transform.position.z - GridPoints[x, z].transform.position.z;
@@ -89,13 +97,17 @@ public class PointPlacement3D : MonoBehaviour
                     }
                 }
             }
+
+            Transform First = GridPoints[0, 0].transform;
+            Transform Last = GridPoints[GridPoints.GetLength(0) - 1, GridPoints.GetLength(1) - 1].transform;
+            CenterPos = (Last.position - First.position) / 2f;
         }
         yield return null;
     }
     float PerlinNoise(Vector2 flatPos)
     {
         //starting indicies
-        int maxIndexX = PX - 2, maxIndexZ = PZ - 2;
+        int maxIndexX = PX, maxIndexZ = PZ;
         Vector2Int blCorner = new Vector2Int(
         Mathf.Clamp((int)(flatPos.x / PointSpacing), 0, maxIndexX), 
         Mathf.Clamp((int)(flatPos.y / PointSpacing), 0, maxIndexZ)
