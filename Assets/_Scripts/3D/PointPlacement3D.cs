@@ -15,7 +15,7 @@ public class PointPlacement3D : MonoBehaviour
     [SerializeField] int PointDensity = 2;
     [SerializeField] bool DiscreteValues = false, GenerationDelay = false;
 
-    Coroutine Generation;
+    Coroutine Generation; 
 
     bool Updated = false;
 
@@ -62,16 +62,26 @@ public class PointPlacement3D : MonoBehaviour
 
             Updated = true;
         }
-
-        
     }
 
     IEnumerator VisibleGeneration()
     {
+        MeshFilter meshFilter = Instantiate(PointPrefab).GetComponent<MeshFilter>();
+        Mesh mesh = meshFilter.mesh;
+
+        int totalVertsX = ((GridPoints.GetLength(1) - 1) * PointDensity) + 1;
+        int totalVertsZ = ((GridPoints.GetLength(0) - 1) * PointDensity) + 1;
+
+        Vector3[] verticies = new Vector3[totalVertsX*totalVertsZ];
+        //since verts are +1 we need to remove 1 from each axis
+        int[] triangles = new int[(totalVertsX - 1)*(totalVertsZ - 1) * 6];
+
+        int t = 0;
+
         List<Vector3> positions = new List<Vector3>();
 
         for (int z = 0; z < GridPoints.GetLength(1); z++)
-        {
+        { 
             for (int x = 0; x < GridPoints.GetLength(0); x++)
             {
                 if (z + 1 < GridPoints.GetLength(1) && x + 1 < GridPoints.GetLength(0))
@@ -91,9 +101,23 @@ public class PointPlacement3D : MonoBehaviour
                             float rawNoise = PerlinNoise(scaledPosition * Frequency) * Amplitude;
                             float yNoise = DiscreteValues ? Mathf.Round(rawNoise) : rawNoise;
 
+                            //we already have world position for verticie here
                             Vector3 position = new Vector3(GridPoints[x, z].transform.position.x + xFraction * xProgress, yNoise, GridPoints[x, z].transform.position.z + zFraction * zProgress);
-                            GameObject point = Instantiate(PointPrefab, position, Quaternion.identity);
-                            point.transform.parent = PointParent;
+                            //index in 1d needed
+                            //points between x and x+1 + progress inside tile 
+                            int vertIndexX = x * PointDensity + xProgress; 
+                            int vertIndexZ = z * PointDensity + zProgress;
+                            //combined index of x and z axis into one * by one row of verticies, index = 7, seventh row is starting point
+                            int index = vertIndexX + vertIndexZ * totalVertsX; 
+                            verticies[index] = position;
+                            
+                            triangles[t++] = index;
+                            triangles[t++] = index + totalVertsX + 1;
+                            triangles[t++] = index + 1;
+
+                            triangles[t++] = index;
+                            triangles[t++] = index + totalVertsX;
+                            triangles[t++] = index + totalVertsX + 1;
                         }
                     }
                 }
@@ -103,16 +127,25 @@ public class PointPlacement3D : MonoBehaviour
             Transform Last = GridPoints[GridPoints.GetLength(0) - 1, GridPoints.GetLength(1) - 1].transform;
             CenterPos = (Last.position - First.position) / 2f;
         }
+
+        mesh.vertices = verticies;
+        mesh.triangles = triangles;
+        mesh.RecalculateNormals();
+        mesh.RecalculateTangents();
+
+
+        Debug.Log(triangles.Length);
         yield return null;
     }
-    float PerlinNoise(Vector2 flatPos)
+
+    GameObject[] GetCorners(Vector2 flatPos)
     {
         //starting indicies
         int maxIndexX = PX - 2, maxIndexZ = PZ - 2;
         //Vector2 scaledPos = Frequency * flatPos;
         //Calculate first corner
         Vector2Int firstCornIndex = new Vector2Int(
-        (int)(flatPos.x / PointSpacing), 
+        (int)(flatPos.x / PointSpacing),
         (int)(flatPos.y / PointSpacing)
         );
 
@@ -129,6 +162,13 @@ public class PointPlacement3D : MonoBehaviour
         GridPoints[indicies[1],indicies[2]],
         GridPoints[indicies[0],indicies[3]],
         GridPoints[indicies[1], indicies[3]]};
+
+        return corners;
+    }
+
+    float PerlinNoise(Vector2 flatPos)
+    {
+        GameObject[] corners = GetCorners(flatPos);
 
         float tx = TSmooth((flatPos.x % PointSpacing) / PointSpacing);
         float ty = TSmooth((flatPos.y % PointSpacing) / PointSpacing);
