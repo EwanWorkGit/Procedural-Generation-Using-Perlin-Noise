@@ -5,22 +5,27 @@ using UnityEngine;
 
 public class PointPlacement3D : MonoBehaviour
 {
-    public Vector3 CenterPos; //for camera
+    public Vector3 CenterGridPos; //for camera
     public int PX = 10, PZ; //Points per axis, for camera
 
     [SerializeField] GameObject[,] GridPoints;
     [SerializeField] GameObject GridPointPrefab, PointPrefab;
     [SerializeField] Transform PointParent;
-    [SerializeField] float PointSpacing = 5f, Amplitude = 2f, Frequency = 1f, GridPointY = -10f;
+    [SerializeField] float Amplitude = 2f, Frequency = 1f, GridPointY = -10f;
+    [Tooltip("Distance between grid points")]
+    [SerializeField] float PointSpacing = 5f;
+    [Tooltip("Subdivisions between grid points")]
     [SerializeField] int PointDensity = 2;
-    [SerializeField] bool DiscreteValues = false, GenerationDelay = false;
+    [SerializeField] bool DiscreteValues = false;
 
-    Coroutine Generation; 
+    Coroutine Generation;
 
+    float MaxHeight = 0;
     bool Updated = false;
 
     private void Start()
     {
+        MaxHeight = 0.7f * Amplitude;
         GridPoints = new GameObject[PX, PZ];
     }
 
@@ -74,11 +79,10 @@ public class PointPlacement3D : MonoBehaviour
         int totalVertsX = ((GridPoints.GetLength(0) - 1) * PointDensity) + 1;
         int totalVertsZ = ((GridPoints.GetLength(1) - 1) * PointDensity) + 1;
 
-        Vector3[] verticies = new Vector3[totalVertsX*totalVertsZ];
+        Vector3[] verticies = new Vector3[totalVertsX*totalVertsZ*4];
         //since verts are +1 we need to remove 1 from each axis
-        int[] triangles = new int[(totalVertsX - 1)*(totalVertsZ - 1) * 6];
-
-        int t = 0;
+        int[] triangles = new int[(totalVertsX - 1)*(totalVertsZ - 1) * 6 * 4];
+        Vector2[] uvs = new Vector2[verticies.Length];
 
         List<Vector3> positions = new List<Vector3>();
 
@@ -94,22 +98,26 @@ public class PointPlacement3D : MonoBehaviour
                     float zFraction = zDist / PointDensity;
                     for (int zProgress = 0; zProgress <= PointDensity; zProgress++)
                     {
-                        if(GenerationDelay)
-                            yield return new WaitForSeconds(0.0001f);
-
                         for (int xProgress = 0; xProgress <= PointDensity; xProgress++)
                         {
                             Vector2 scaledPosition = new Vector2(GridPoints[x, z].transform.position.x + xFraction * xProgress, GridPoints[x, z].transform.position.z + zFraction * zProgress);
-                            float rawNoise = PerlinNoise(scaledPosition * Frequency) * Amplitude;
+                            float rawNoise = (PerlinNoise(scaledPosition * Frequency) * Amplitude) + PerlinNoise(scaledPosition * Frequency * 2f) * Amplitude * 0.5f + PerlinNoise(scaledPosition * Frequency * 4f) * Amplitude * 0.25f;
                             float yNoise = DiscreteValues ? Mathf.Round(rawNoise) : rawNoise;
 
                             int vertIndexX = x * PointDensity + xProgress;
                             int vertIndexZ = z * PointDensity + zProgress;
 
                             //we already have world position for verticie here
-                            Vector3 position = new Vector3(GridPoints[x, z].transform.position.x + xFraction * xProgress, yNoise, GridPoints[x, z].transform.position.z + zFraction * zProgress);
-                            int index = vertIndexX + vertIndexZ * totalVertsX;
-                            verticies[index] = position;
+                            Vector3 centerPosition = new Vector3(GridPoints[x, z].transform.position.x + xFraction * xProgress, yNoise, GridPoints[x, z].transform.position.z + zFraction * zProgress);
+                            int index = (vertIndexX + vertIndexZ * totalVertsX) * 4;
+
+                            //since we want the size of one subdivision / 2
+                            float halfSize = (PointSpacing / PointDensity) / 2f;
+
+                            verticies[index] = centerPosition + new Vector3(-halfSize, 0f, -halfSize); //near left
+                            verticies[index+1] = centerPosition + new Vector3(halfSize, 0f, -halfSize); //near right 
+                            verticies[index+2] = centerPosition + new Vector3(-halfSize, 0f, halfSize); //far left
+                            verticies[index+3] = centerPosition + new Vector3(halfSize, 0f, halfSize); //far right
                         }
                     }
                 }
@@ -117,34 +125,75 @@ public class PointPlacement3D : MonoBehaviour
 
             Transform First = GridPoints[0, 0].transform;
             Transform Last = GridPoints[GridPoints.GetLength(0) - 1, GridPoints.GetLength(1) - 1].transform;
-            CenterPos = (Last.position - First.position) / 2f;
-            meshObject.transform.position = CenterPos - Last.position / 2f;
+            CenterGridPos = (Last.position - First.position) / 2f;
+            meshObject.transform.position = CenterGridPos - Last.position / 2f;
         }
 
-        for(int z = 0; z < totalVertsZ - 1; z++)
+        int t = 0;
+
+        float[] heightMap = new float[totalVertsX*totalVertsZ*4];
+
+        for (int z = 0; z < totalVertsZ - 1; z++)
         {
             for(int x = 0; x < totalVertsX - 1; x++)
             {
-                int index = x + z * totalVertsX;
+                int index = (x + z * totalVertsX) * 4;
+                heightMap[index] = verticies[index].y;
 
                 if((x == totalVertsX && z == totalVertsZ) || (x == totalVertsX && z < totalVertsZ) || (x < totalVertsX && z == totalVertsZ))
                 {
                     continue;
                 }
                 
-
+                //triangles (top faces) 
                 triangles[t++] = index;
-                triangles[t++] = index + totalVertsX + 1;
+                triangles[t++] = index + 2;
                 triangles[t++] = index + 1;
 
-                triangles[t++] = index;
-                triangles[t++] = index + totalVertsX;
-                triangles[t++] = index + totalVertsX + 1;
+                triangles[t++] = index + 1;
+                triangles[t++] = index + 2;
+                triangles[t++] = index + 3;
+
+                //top cell || bottom cell (syntax)
+                //front = bottom left/right || top left/right
+                //left = top left/bottom left || top right/bottom right 
+                //right = top right/bottom right || top left/bottom left
+                //bottom = top right/left || bottom right/left
+
+                //index = a, index + 1 = b, index + 2 = c, index + 3 = d
+
+                //front and back?
+                if (heightMap[index] > heightMap[index + 4])
+                {
+                    //acb
+                    triangles[t++] = index + 4;
+                    triangles[t++] = index + 1;
+                    triangles[t++] = index + 6; //+4 = leftbottom for next + 2 = left top for next
+                    //cbd
+                    triangles[t++] = index + 1;
+                    triangles[t++] = index + 3;
+                    triangles[t++] = index + 6;
+                }
+                //front
+                //if(heightMap[index] > heightMap[index - totalVertsX])
+                {
+
+                }
+
+
+                //truncate list to index
+
+                //UV
+                float u = (float)x / (totalVertsX-1);
+                float v = (float)z / (totalVertsZ-1);
+
+                uvs[index] = new Vector2(u, v);
             }
         }
 
         mesh.vertices = verticies;
         mesh.triangles = triangles;
+        mesh.uv = uvs;
         mesh.RecalculateNormals();
         mesh.RecalculateTangents();
 

@@ -151,19 +151,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4671b1771b8fa9543a3b9e50914a51fe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CenterPos: {x: 0, y: 0, z: 0}
-  PX: 27
-  PZ: 27
+  CenterGridPos: {x: 0, y: 0, z: 0}
+  PX: 20
+  PZ: 20
   GridPointPrefab: {fileID: 8096286367886233396, guid: c5c7e02ff9a9cfb4db42088b9543f671, type: 3}
   PointPrefab: {fileID: 1964488191539610139, guid: 3d2b7828634c7634798e4b7ccfc92941, type: 3}
   PointParent: {fileID: 1452390472}
-  PointSpacing: 10
-  Amplitude: 50
-  Frequency: 0.2
+  Amplitude: 20
+  Frequency: 0.1
   GridPointY: -10
+  PointSpacing: 10
   PointDensity: 10
   DiscreteValues: 1
-  GenerationDelay: 0
 --- !u!4 &513662959
 Transform:
   m_ObjectHideFlags: 0
@@ -383,7 +382,8 @@ MonoBehaviour:
   OrbitRadius: 40
   OrbitHeight: 1
   MoveSpeed: 2
-  ScrollSpeed: 20
+  ScrollSpeed: 300
+  OrbitingCenter: 1
 --- !u!1 &1452390471
 GameObject:
   m_ObjectHideFlags: 0

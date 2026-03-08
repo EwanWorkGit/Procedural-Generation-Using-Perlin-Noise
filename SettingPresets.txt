@@ -1,0 +1,7 @@
+Perlin noise values that look good.
+
+Mountains:
+Point density = 20;
+Point spacing = 10;
+Frequency = 0.4;
+Amplitude = 25;
