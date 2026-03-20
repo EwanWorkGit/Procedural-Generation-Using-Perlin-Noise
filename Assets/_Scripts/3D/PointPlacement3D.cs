@@ -11,11 +11,9 @@ public class PointPlacement3D : MonoBehaviour
     [SerializeField] GameObject[,] GridPoints;
     [SerializeField] GameObject GridPointPrefab, PointPrefab;
     [SerializeField] Transform PointParent;
-    [SerializeField] float PointSpacing = 5f, Amplitude = 2f, Frequency = 1f, GridPointY = -10f;
+    [SerializeField] float PointSpacing = 5f, Amplitude = 2f, Frequency = 1f, SeaLevel = -10f;
     [SerializeField] int PointDensity = 2;
-    [SerializeField] bool DiscreteValues = false, GenerationDelay = false;
-
-    Coroutine Generation; 
+    [SerializeField] bool DiscreteValues = false, VisibleGrid = false;
 
     bool Updated = false;
 
@@ -29,8 +27,6 @@ public class PointPlacement3D : MonoBehaviour
     {
         if(Input.GetMouseButtonDown(0))
         {
-            StopCoroutine(Generation);
-
             GameObject[] points = GameObject.FindGameObjectsWithTag("Point");
             foreach(GameObject p in points)
             {
@@ -44,43 +40,40 @@ public class PointPlacement3D : MonoBehaviour
 
         if(!Updated)
         {
-            Vector3 right = Vector3.right, up = Vector3.up;
-
             for(int z = 0; z < GridPoints.GetLength(1); z++)
             {
                 for(int x = 0; x < GridPoints.GetLength(0); x++)
                 {
-                    Vector3 position = new Vector3(x * PointSpacing, GridPointY, z * PointSpacing);
+                    Vector3 position = new Vector3(x * PointSpacing, SeaLevel, z * PointSpacing);
                     GameObject gridPoint = Instantiate(GridPointPrefab, position, Quaternion.identity);
+                    gridPoint.SetActive(VisibleGrid);
                     gridPoint.GetComponent<GridPointInfo>().Gradient = new Vector2(UnityEngine.Random.Range(-1, 1f), UnityEngine.Random.Range(-1, 1f)).normalized;
                     gridPoint.transform.parent = PointParent;
                     GridPoints[x,z] = gridPoint;
                 }
             }
 
-            Generation = StartCoroutine(VisibleGeneration());
+            GenerateMesh();
 
             Updated = true;
         }
     }
 
-    IEnumerator VisibleGeneration()
+    void GenerateMesh()
     {
+        //for safety
+        Frequency = Mathf.Clamp(Frequency, 0, Mathf.Infinity);
+
         GameObject meshObject = Instantiate(PointPrefab);
         MeshFilter meshFilter = meshObject.GetComponent<MeshFilter>();
         Mesh mesh = meshFilter.mesh;
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-
         int totalVertsX = ((GridPoints.GetLength(0) - 1) * PointDensity) + 1;
         int totalVertsZ = ((GridPoints.GetLength(1) - 1) * PointDensity) + 1;
-
         Vector3[] verticies = new Vector3[totalVertsX*totalVertsZ];
         //since verts are +1 we need to remove 1 from each axis
         int[] triangles = new int[(totalVertsX - 1)*(totalVertsZ - 1) * 6];
-
         int t = 0;
-
-        List<Vector3> positions = new List<Vector3>();
 
         for (int z = 0; z < GridPoints.GetLength(1); z++)
         { 
@@ -94,13 +87,10 @@ public class PointPlacement3D : MonoBehaviour
                     float zFraction = zDist / PointDensity;
                     for (int zProgress = 0; zProgress <= PointDensity; zProgress++)
                     {
-                        if(GenerationDelay)
-                            yield return new WaitForSeconds(0.0001f);
-
                         for (int xProgress = 0; xProgress <= PointDensity; xProgress++)
                         {
                             Vector2 scaledPosition = new Vector2(GridPoints[x, z].transform.position.x + xFraction * xProgress, GridPoints[x, z].transform.position.z + zFraction * zProgress);
-                            float rawNoise = PerlinNoise(scaledPosition * Frequency) * Amplitude;
+                            float rawNoise = PerlinNoise(scaledPosition * Frequency) * Amplitude + PerlinNoise(scaledPosition * (Frequency * 2f)) * (Amplitude / 2f);
                             float yNoise = DiscreteValues ? Mathf.Round(rawNoise) : rawNoise;
 
                             int vertIndexX = x * PointDensity + xProgress;
@@ -114,7 +104,6 @@ public class PointPlacement3D : MonoBehaviour
                     }
                 }
             }
-
             Transform First = GridPoints[0, 0].transform;
             Transform Last = GridPoints[GridPoints.GetLength(0) - 1, GridPoints.GetLength(1) - 1].transform;
             CenterPos = (Last.position - First.position) / 2f;
@@ -132,7 +121,6 @@ public class PointPlacement3D : MonoBehaviour
                     continue;
                 }
                 
-
                 triangles[t++] = index;
                 triangles[t++] = index + totalVertsX + 1;
                 triangles[t++] = index + 1;
@@ -148,9 +136,7 @@ public class PointPlacement3D : MonoBehaviour
         mesh.RecalculateNormals();
         mesh.RecalculateTangents();
 
-
         Debug.Log($"Trigs: {triangles.Length} || Verts: {verticies.Length}");
-        yield return null;
     }
 
     GameObject[] GetCorners(Vector2 flatPos)

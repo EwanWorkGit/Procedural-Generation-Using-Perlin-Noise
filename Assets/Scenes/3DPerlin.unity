@@ -152,18 +152,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   CenterPos: {x: 0, y: 0, z: 0}
-  PX: 27
-  PZ: 27
+  PX: 30
+  PZ: 30
   GridPointPrefab: {fileID: 8096286367886233396, guid: c5c7e02ff9a9cfb4db42088b9543f671, type: 3}
   PointPrefab: {fileID: 1964488191539610139, guid: 3d2b7828634c7634798e4b7ccfc92941, type: 3}
   PointParent: {fileID: 1452390472}
-  PointSpacing: 10
-  Amplitude: 50
-  Frequency: 0.2
-  GridPointY: -10
+  PointSpacing: 15
+  Amplitude: 125
+  Frequency: 0.12
+  SeaLevel: -10
   PointDensity: 10
   DiscreteValues: 1
-  GenerationDelay: 0
+  VisibleGrid: 1
 --- !u!4 &513662959
 Transform:
   m_ObjectHideFlags: 0
@@ -311,7 +311,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
+  m_BackGroundColor: {r: 0.0754717, g: 0.0751157, b: 0.0751157, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -383,7 +383,11 @@ MonoBehaviour:
   OrbitRadius: 40
   OrbitHeight: 1
   MoveSpeed: 2
-  ScrollSpeed: 20
+  ZoomSpeedMouse: 200
+  ZoomSpeedKeys: 50
+  MouseSens: 1
+  FreeMoveSpeed: 80
+  FreeLookMult: 3
 --- !u!1 &1452390471
 GameObject:
   m_ObjectHideFlags: 0
@@ -419,6 +423,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1216999100}
   - {fileID: 513708267}
+  - {fileID: 1216999100}
   - {fileID: 513662959}
