@@ -68,9 +68,7 @@ public class CameraMovement : MonoBehaviour
                     break;
             }
 
-            int px = PointHandler.PX, pz = PointHandler.PZ;
-            float maxRadius = (px > pz ? px : pz) * 20f;
-            OrbitRadius = Mathf.Clamp(OrbitRadius, 2.5f, maxRadius);
+            OrbitRadius = Mathf.Clamp(OrbitRadius, 2.5f, Mathf.Infinity);
             Vector3 orbitPos = PointHandler.CenterPos + new Vector3(Mathf.Cos(Angle), OrbitHeight, Mathf.Sin(Angle)).normalized * OrbitRadius;
 
             transform.position = orbitPos;
